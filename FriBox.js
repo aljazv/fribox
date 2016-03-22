@@ -16,6 +16,8 @@ var streznik = http.createServer(function(zahteva, odgovor) {
        posredujOsnovnoStran(odgovor);
    } else if (zahteva.url == '/datoteke') { 
        posredujSeznamDatotek(odgovor);
+   } else if(zahteva.url.startsWith('/poglej')) {
+        posredujStaticnoVsebino(odgovor, dataDir + zahteva.url.replace("/poglej", ""), "");
    } else if (zahteva.url.startsWith('/brisi')) { 
        izbrisiDatoteko(odgovor, dataDir + zahteva.url.replace("/brisi", ""));
    } else if (zahteva.url.startsWith('/prenesi')) { 
@@ -37,12 +39,14 @@ function posredujStaticnoVsebino(odgovor, absolutnaPotDoDatoteke, mimeType) {
                 fs.readFile(absolutnaPotDoDatoteke, function(napaka, datotekaVsebina) {
                     if (napaka) {
                         //Posreduj napako
+                        posredujNapako404(odgovor);
                     } else {
                         posredujDatoteko(odgovor, absolutnaPotDoDatoteke, datotekaVsebina, mimeType);
                     }
                 })
             } else {
                 //Posreduj napako
+                posredujNapako404(odgovor);
             }
         })
 }
@@ -62,6 +66,7 @@ function posredujSeznamDatotek(odgovor) {
     fs.readdir(dataDir, function(napaka, datoteke) {
         if (napaka) {
             //Posreduj napako
+            posredujNapako500(odgovor);
         } else {
             var rezultat = [];
             for (var i=0; i<datoteke.length; i++) {
@@ -72,6 +77,18 @@ function posredujSeznamDatotek(odgovor) {
             
             odgovor.write(JSON.stringify(rezultat));
             odgovor.end();      
+        }
+    })
+}
+
+function izbrisiDatoteko(odgovor, datoteka) {
+    odgovor.writeHead(200, {'Content-Type': 'text/plain'});
+    fs.unlink(datoteka, function(napaka) {
+        if(napaka) {
+            posredujNapako404(odgovor);
+        } else {
+            odgovor.write("Datoteka izbrisana!");
+            odgovor.end();
         }
     })
 }
@@ -89,9 +106,26 @@ function naloziDatoteko(zahteva, odgovor) {
         fs.copy(zacasnaPot, dataDir + datoteka, function(napaka) {  
             if (napaka) {
                 //Posreduj napako
+                posredujNapako404(odgovor);
             } else {
                 posredujOsnovnoStran(odgovor);        
             }
         });
     });
+}
+
+streznik.listen(process.env.PORT, function() {
+    console.log("Strežnik je podnan!");
+})
+
+function posredujNapako404(odgovor) {
+    odgovor.writeHead(404, {'Content-Type':'text/plain'});
+    odgovor.write('Napaka 404: Vira ni mogoče najti!');
+    odgovor.end();
+}
+
+function posredujNapako500(odgovor) {
+    odgovor.writeHead(500, {'Content-Type':'text/plain'});
+    odgovor.write('Napaka 500: Vira ni mogoče najti!');
+    odgovor.end();
 }
